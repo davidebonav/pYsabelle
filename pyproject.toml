@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pYsabelle"
+version = "0.1.0"
+dependencies = [ "pydantic>=2.0.0", ]
+requires-python = ">=3.9"
+authors = [
+    {name = "davidebonav"}
+]
+# maintainers = [ {name = "", email = ""} ]
+description = "A modern Python client for the Isabelle Server protocol"
+readme = "README.md"
+license = {text = "AGPL-3.0"}
+keywords = ["isabelle", "hol", "interactive theorem proving", "asyncio", "formal verification"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+# Homepage = ""
+# Documentation = ""
+Repository = "https://github.com/davidebonav/pYsabelle"
+Issues = "https://github.com/davidebonav/pYsabelle/issues"
+# Changelog = "https://github.com/davidebonav/pYsabelle/blob/master/CHANGELOG.md"
+# "Download Link" = ""
+
+[project.optional-dependencies]
+test = [ "pytest>=7.0", "pytest-asyncio>=0.21.0",  ]
+docs = [ "mkdocs-material", "mkdocstrings[python]", ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pysabelle"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length    = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "ANN"]
+ignore = ["ANN101", "ANN102", "ANN401"]
