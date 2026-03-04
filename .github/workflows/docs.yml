@@ -15,8 +15,11 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: |
-          pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints
-      - name: Build HTML
+          pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints myst-parser
+      - name: Generate .rst files with sphinx-apidoc
+        run: |
+          sphinx-apidoc -o docs/source pysabelle --force
+      - name: Build HTML documentation
         run: |
           cd docs
           make html
