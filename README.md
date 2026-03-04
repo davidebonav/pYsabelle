@@ -6,6 +6,12 @@ pYsabelle provides a clean, layered API to interact with Isabelle's TCP server (
 
 ---
 
+## Documentation
+
+The complete project documentation is available on [GitHub Pages](https://davidebonav.github.io/pYsabelle/).
+
+---
+
 ## Features
 
 - **Full protocol coverage** — implements the complete Isabelle Server protocol (§4.2-§4.4): `help`, `echo`, `shutdown`, `cancel`, `session_build`, `session_start`, `session_stop`, `use_theories`, `purge_theories`
