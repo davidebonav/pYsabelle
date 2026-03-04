@@ -1,3 +1,5 @@
+"""High‑level Isabelle session facade with convenience methods."""
+
 from __future__ import annotations
 
 import logging
@@ -28,40 +30,86 @@ log = logging.getLogger(__name__)
 
 
 class IsabelleSession:
+    """High‑level session wrapper.
+
+    This class provides a convenient interface to an Isabelle PIDE session.
+    It manages the underlying client, dispatcher and server process, and
+    offers methods for building, loading theories, purging, etc.
+
+    Use the class methods :meth:`start` (spawn a new server) or :meth:`connect`
+    (attach to an existing server) to create an instance. It is designed to be
+    used as an async context manager.
+
+    Attributes:
+        session_id: The UUID of the session.
+        tmp_dir: Temporary directory created for this session.
+    """
+
     def __init__(
         self,
-        client:     IsabelleClient,
+        client: IsabelleClient,
         session_id: SessionId,
-        tmp_dir:    str,
+        tmp_dir: str,
     ) -> None:
-        self._client     = client
+        """Initialize a session.
+
+        Args:
+            client: Connected IsabelleClient instance.
+            session_id: Session UUID.
+            tmp_dir: Session temporary directory.
+        """
+        self._client = client
         self._session_id = session_id
-        self._tmp_dir    = tmp_dir
-        self._closed     = False
+        self._tmp_dir = tmp_dir
+        self._closed = False
 
     @property
     def session_id(self) -> SessionId:
+        """Session UUID."""
         return self._session_id
 
     @property
     def tmp_dir(self) -> str:
+        """Temporary directory path."""
         return self._tmp_dir
 
     @classmethod
     async def start(
         cls,
-        session:          str,
+        session: str,
         *,
-        server_name:      str                      = "isabelle",
-        reuse_server:     bool                     = True,
-        options:          Sequence[str]            = (),
-        dirs:             Sequence[str]            = (),
-        include_sessions: Sequence[str]            = (),
-        verbose:          bool                     = False,
-        print_mode:       Sequence[str]            = (),
-        on_progress:      ProgressCallback | None  = None,
-        timeout:          float | None             = None,
+        server_name: str = "isabelle",
+        reuse_server: bool = True,
+        options: Sequence[str] = (),
+        dirs: Sequence[str] = (),
+        include_sessions: Sequence[str] = (),
+        verbose: bool = False,
+        print_mode: Sequence[str] = (),
+        on_progress: ProgressCallback | None = None,
+        timeout: float | None = None,
     ) -> "IsabelleSession":
+        """Start a new Isabelle server and create a session.
+
+        Args:
+            session: Name of the session to start (e.g., "HOL").
+            server_name: Name for the server process.
+            reuse_server: If True, attach to an existing server with the same name
+                instead of starting a new one.
+            options: List of Isabelle options (e.g., ["timeout=60"]).
+            dirs: Additional directories containing ROOT files.
+            include_sessions: Sessions whose theories should be included.
+            verbose: Enable verbose output.
+            print_mode: Print mode for output (e.g., ["ASCII"]).
+            on_progress: Optional callback for progress messages during startup.
+            timeout: Optional timeout for the session_start command.
+
+        Returns:
+            A new IsabelleSession instance.
+
+        Raises:
+            IsabelleConnectionError: If server connection fails.
+            IsabelleCommandError: If the session_start command fails.
+        """
         client = await IsabelleClient.start(
             name=server_name, reuse_existing=reuse_server
         )
@@ -80,19 +128,41 @@ class IsabelleSession:
     @classmethod
     async def connect(
         cls,
-        session:          str,
+        session: str,
         *,
-        host:             str                      = "127.0.0.1",
-        port:             int                      = 4711,
-        password:         str                      = "",
-        options:          Sequence[str]            = (),
-        dirs:             Sequence[str]            = (),
-        include_sessions: Sequence[str]            = (),
-        verbose:          bool                     = False,
-        print_mode:       Sequence[str]            = (),
-        on_progress:      ProgressCallback | None  = None,
-        timeout:          float | None             = None,
+        host: str = "127.0.0.1",
+        port: int = 4711,
+        password: str = "",
+        options: Sequence[str] = (),
+        dirs: Sequence[str] = (),
+        include_sessions: Sequence[str] = (),
+        verbose: bool = False,
+        print_mode: Sequence[str] = (),
+        on_progress: ProgressCallback | None = None,
+        timeout: float | None = None,
     ) -> "IsabelleSession":
+        """Connect to an already‑running Isabelle server and create a session.
+
+        Args:
+            session: Name of the session to start.
+            host: Server hostname.
+            port: Server port.
+            password: Password for handshake.
+            options: List of Isabelle options.
+            dirs: Additional directories.
+            include_sessions: Sessions to include.
+            verbose: Enable verbose output.
+            print_mode: Print mode.
+            on_progress: Optional progress callback.
+            timeout: Optional timeout for session_start.
+
+        Returns:
+            A new IsabelleSession instance.
+
+        Raises:
+            IsabelleConnectionError: If connection/handshake fails.
+            IsabelleCommandError: If session_start fails.
+        """
         client = await IsabelleClient.connect(
             host=host, port=port, password=password
         )
@@ -111,20 +181,21 @@ class IsabelleSession:
     @classmethod
     async def _open_session(
         cls,
-        client:           IsabelleClient,
+        client: IsabelleClient,
         *,
-        session:          str,
-        options:          list[str],
-        dirs:             list[str],
+        session: str,
+        options: list[str],
+        dirs: list[str],
         include_sessions: list[str],
-        verbose:          bool,
-        print_mode:       list[str],
-        on_progress:      ProgressCallback | None,
-        timeout:          float | None,
+        verbose: bool,
+        print_mode: list[str],
+        on_progress: ProgressCallback | None,
+        timeout: float | None,
     ) -> "IsabelleSession":
+        """Internal: start the dispatcher and send session_start."""
         await client._dispatcher.start()
 
-        args    = SessionBuildArgs(
+        args = SessionBuildArgs(
             session=session,
             options=options,
             dirs=dirs,
@@ -133,7 +204,7 @@ class IsabelleSession:
             print_mode=print_mode,
         )
         on_note = build_note_handler(on_progress) if on_progress else None
-        result  = await client.cmd.session_start(args, on_note=on_note)
+        result = await client.cmd.session_start(args, on_note=on_note)
 
         log.info(
             "Session '%s' started: id=%s tmp_dir=%s",
@@ -143,17 +214,35 @@ class IsabelleSession:
 
     async def build(
         self,
-        session:          str,
+        session: str,
         *,
-        options:          Sequence[str]            = (),
-        dirs:             Sequence[str]            = (),
-        include_sessions: Sequence[str]            = (),
-        verbose:          bool                     = False,
-        on_progress:      ProgressCallback | None  = None,
-        timeout:          float | None             = None,
+        options: Sequence[str] = (),
+        dirs: Sequence[str] = (),
+        include_sessions: Sequence[str] = (),
+        verbose: bool = False,
+        on_progress: ProgressCallback | None = None,
+        timeout: float | None = None,
     ) -> SessionBuildResults:
+        """Build a session hierarchy (without starting it).
+
+        Args:
+            session: Session name to build.
+            options: List of Isabelle options.
+            dirs: Additional directories.
+            include_sessions: Sessions to include.
+            verbose: Enable verbose output.
+            on_progress: Optional progress callback.
+            timeout: Optional timeout.
+
+        Returns:
+            Build results for all required sessions.
+
+        Raises:
+            SessionAlreadyClosed: If the session is already closed.
+            IsabelleCommandError: If the build fails.
+        """
         self._guard()
-        args    = SessionBuildArgs(
+        args = SessionBuildArgs(
             session=session,
             options=list(options),
             dirs=list(dirs),
@@ -165,23 +254,48 @@ class IsabelleSession:
 
     async def use_theories(
         self,
-        theories:           list[str],
+        theories: list[str],
         *,
-        master_dir:         str | None             = None,
-        pretty_margin:      float | None           = None,
-        unicode_symbols:    bool | None            = None,
-        export_pattern:     str | None             = None,
-        check_delay:        float | None           = None,
-        check_limit:        int | None             = None,
-        watchdog_timeout:   float | None           = None,
-        nodes_status_delay: float | None           = None,
-        on_progress:        ProgressCallback    | None = None,
-        on_nodes_status:    NodesStatusCallback | None = None,
-        raise_on_error:     bool                   = False,
-        timeout:            float | None           = None,
+        master_dir: str | None = None,
+        pretty_margin: float | None = None,
+        unicode_symbols: bool | None = None,
+        export_pattern: str | None = None,
+        check_delay: float | None = None,
+        check_limit: int | None = None,
+        watchdog_timeout: float | None = None,
+        nodes_status_delay: float | None = None,
+        on_progress: ProgressCallback | None = None,
+        on_nodes_status: NodesStatusCallback | None = None,
+        raise_on_error: bool = False,
+        timeout: float | None = None,
     ) -> UseTheoriesResults:
+        """Load and process a list of theories.
+
+        Args:
+            theories: List of theory names or file paths.
+            master_dir: Base directory for resolving relative paths.
+            pretty_margin: Output line width.
+            unicode_symbols: Use Unicode symbols in output.
+            export_pattern: Pattern for theory exports.
+            check_delay: Seconds between status checks.
+            check_limit: Maximum number of checks (0 = unbounded).
+            watchdog_timeout: Seconds of inactivity before abort.
+            nodes_status_delay: Seconds between node status updates.
+            on_progress: Callback for progress messages.
+            on_nodes_status: Callback for periodic node status lists.
+            raise_on_error: If True, raise TheoryLoadError when `ok` is False.
+            timeout: Optional timeout for the whole command.
+
+        Returns:
+            UseTheoriesResults containing per‑node status, messages and exports.
+
+        Raises:
+            SessionAlreadyClosed: If session is closed.
+            TheoryLoadError: If raise_on_error=True and errors occurred.
+            IsabelleCommandError: For other command failures.
+        """
         self._guard()
-        args    = UseTheoriesArgs(
+        args = UseTheoriesArgs(
             session_id=self._session_id,
             theories=theories,
             master_dir=master_dir,
@@ -193,8 +307,8 @@ class IsabelleSession:
             watchdog_timeout=watchdog_timeout,
             nodes_status_delay=nodes_status_delay,
         )
-        on_note  = use_theories_note_handler(on_progress, on_nodes_status)
-        results  = await self._client.cmd.use_theories(args, on_note=on_note)
+        on_note = use_theories_note_handler(on_progress, on_nodes_status)
+        results = await self._client.cmd.use_theories(args, on_note=on_note)
 
         if raise_on_error and not results.ok:
             raise TheoryLoadError(results.errors)
@@ -203,11 +317,25 @@ class IsabelleSession:
 
     async def purge_theories(
         self,
-        theories:   Sequence[str] = (),
+        theories: Sequence[str] = (),
         *,
-        master_dir: str | None    = None,
-        all:        bool          = False,   # noqa: A002
+        master_dir: str | None = None,
+        all: bool = False,  # noqa: A002
     ) -> PurgeTheoriesResults:
+        """Unload theories from the session.
+
+        Args:
+            theories: List of theory node names to purge.
+            master_dir: Base directory for resolving paths.
+            all: If True, purge all currently loaded theories.
+
+        Returns:
+            PurgeTheoriesResults listing purged and retained nodes.
+
+        Raises:
+            SessionAlreadyClosed: If session is closed.
+            IsabelleCommandError: If the command fails.
+        """
         self._guard()
         args = PurgeTheoriesArgs(
             session_id=self._session_id,
@@ -222,6 +350,18 @@ class IsabelleSession:
         theories: list[str],
         **kwargs,
     ) -> list[Message]:
+        """Load theories and return only the error messages.
+
+        This is a convenience wrapper around `use_theories` that discards
+        success information and returns only the error list.
+
+        Args:
+            theories: List of theory names.
+            **kwargs: Additional arguments passed to `use_theories`.
+
+        Returns:
+            List of error messages (empty if no errors).
+        """
         results = await self.use_theories(theories, **kwargs)
         return results.errors
 
@@ -230,6 +370,17 @@ class IsabelleSession:
         theories: list[str],
         **kwargs,
     ) -> UseTheoriesResults:
+        """Load theories and then immediately purge them.
+
+        Useful for checking theories with minimal memory footprint.
+
+        Args:
+            theories: List of theory names.
+            **kwargs: Additional arguments passed to `use_theories`.
+
+        Returns:
+            The results of the `use_theories` command (before purging).
+        """
         results = await self.use_theories(theories, **kwargs)
         node_names = [entry.node.node_name for entry in results.nodes]
         if node_names:
@@ -237,6 +388,14 @@ class IsabelleSession:
         return results
 
     async def close(self) -> SessionStopResult:
+        """Stop the session and clean up resources.
+
+        Returns:
+            SessionStopResult indicating success and return code.
+
+        Raises:
+            IsabelleCommandError: If session_stop fails.
+        """
         if self._closed:
             return SessionStopResult(ok=True, return_code=0)
 
@@ -258,9 +417,11 @@ class IsabelleSession:
         return result
 
     async def __aenter__(self) -> "IsabelleSession":
+        """Enter async context: return self."""
         return self
 
     async def __aexit__(self, *_: object) -> None:
+        """Exit async context: close the session."""
         await self.close()
 
     def __repr__(self) -> str:

@@ -8,14 +8,14 @@ pYsabelle provides a clean, layered API to interact with Isabelle's TCP server (
 
 ## Features
 
-- **Full protocol coverage** — implements the complete Isabelle Server protocol (§4.2–§4.4): `help`, `echo`, `shutdown`, `cancel`, `session_build`, `session_start`, `session_stop`, `use_theories`, `purge_theories`
+- **Full protocol coverage** — implements the complete Isabelle Server protocol (§4.2-§4.4): `help`, `echo`, `shutdown`, `cancel`, `session_build`, `session_start`, `session_stop`, `use_theories`, `purge_theories`
 - **Async-native** — built entirely on `asyncio`; no blocking calls on the hot path
 - **Typed dataclasses** — all wire types from §4.3 are represented as `frozen` dataclasses (`Position`, `Message`, `TheoryProgress`, `NodeStatus`, `NodeResults`, `UseTheoriesResults`, etc.)
 - **Three-layer architecture** — use only the abstraction level you need (raw transport → raw commands → high-level session)
 - **Server lifecycle management** — can spawn, attach to, or stop an `isabelle server` subprocess automatically
 - **Structured error hierarchy** — `IsabelleConnectionError`, `IsabelleProtocolError`, `IsabelleCommandError`, `IsabelleTimeoutError`, `IsabelleTaskCancelled`
 - **Async progress callbacks** — typed `on_progress` and `on_nodes_status` hooks for long-running tasks
-- **Python 3.9–3.12** support
+- **Python 3.9-3.12** support
 
 ---
 

@@ -1,3 +1,5 @@
+"""High‑level session API: IsabelleSession and associated callback types."""
+
 from __future__ import annotations
 
 from pysabelle.session.callbacks import NodesStatusCallback, ProgressCallback

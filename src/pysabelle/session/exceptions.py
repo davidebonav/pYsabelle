@@ -1,3 +1,5 @@
+"""Exceptions specific to the high‑level session API."""
+
 from __future__ import annotations
 
 from pysabelle.raw.exceptions import IsabelleError
@@ -9,7 +11,7 @@ class IsabelleSessionError(IsabelleError):
 
 
 class SessionAlreadyClosed(IsabelleSessionError):
-    """Raised when a method is called on an already-closed session."""
+    """Raised when a method is called on an already‑closed session."""
 
     def __init__(self) -> None:
         super().__init__("This session has already been closed.")
@@ -17,7 +19,11 @@ class SessionAlreadyClosed(IsabelleSessionError):
 
 class TheoryLoadError(IsabelleSessionError):
     """Raised by :meth:`~pysabelle.session.session.IsabelleSession.use_theories`
-    when ``ok=False`` and ``raise_on_error=True``."""
+    when ``ok=False`` and ``raise_on_error=True``.
+
+    Attributes:
+        errors: List of error messages collected during theory loading.
+    """
 
     def __init__(self, errors: list[Message]) -> None:
         self.errors = errors

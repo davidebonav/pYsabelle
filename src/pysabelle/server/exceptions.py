@@ -1,3 +1,5 @@
+"""Exceptions raised during server process management."""
+
 from __future__ import annotations
 
 

@@ -1,36 +1,9 @@
+"""Typed dataclasses mirroring the JSON types defined in §4.3 of the Isabelle System Manual.
+
+All types are pure data containers with `from_dict` / `to_dict` methods for
+JSON (de)serialisation.
 """
-pysabelle.client.types
-================
-Typed dataclasses mirroring the JSON types defined in §4.3 of the Isabelle
-System Manual, plus argument and result types for each command in §4.4.
 
-All types are pure data containers — no I/O, no asyncio, no side effects.
-Every type that can arrive from or be sent to the server implements a pair
-of ``from_dict`` / ``to_dict`` methods for JSON (de)serialisation.
-
-Types are organised in manual order:
-
-    §4.3  common
-        Position, MessageKind, Message, ErrorMessage, TheoryProgress,
-        Timing, NodeStatus, Node, NodeWithStatus
-
-    §4.4.5 / §4.4.6  session_build / session_start
-        SessionBuildArgs, SessionBuildResult, SessionBuildResults,
-        SessionStartResult
-
-    §4.4.7  session_stop
-        SessionStopResult
-
-    §4.4.8  use_theories
-        UseTheoriesArgs, Export, NodeResults, NodeResultEntry,
-        UseTheoriesResults
-
-    §4.4.9  purge_theories
-        PurgeTheoriesArgs, PurgeTheoriesResults
-
-    Callback aliases
-        NoteCallback
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -52,6 +25,7 @@ UUID = str
 # §4.3 — task and session_id wrappers
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class TaskId:
     """Wraps the UUID of a running asynchronous task (§4.3 ``type task``).
@@ -59,7 +33,7 @@ class TaskId:
     Using a dedicated type prevents accidentally passing a task UUID where
     a session UUID is expected, and vice versa.
 
-    Args:
+    Attributes:
         task: Raw UUID string from an ``OK {"task": "<uuid>"}`` reply.
     """
 
@@ -73,12 +47,8 @@ class TaskId:
 class SessionId:
     """Wraps the UUID of an active PIDE session (§4.3 ``type session_id``).
 
-    Using a dedicated type prevents accidentally passing a session UUID
-    where a task UUID is expected, and vice versa.
-
-    Args:
-        session_id: Raw UUID string from a
-            ``FINISHED {"session_id": "<uuid>", …}`` reply.
+    Attributes:
+        session_id: Raw UUID string from a ``FINISHED {"session_id": "<uuid>", …}`` reply.
     """
 
     session_id: UUID
@@ -102,6 +72,7 @@ NoteCallback = Callable[["RawReply"], Awaitable[None]]
 # §4.3 — common types
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class Position:
     """Source position within Isabelle text (§4.3 ``type position``).
@@ -110,19 +81,19 @@ class Position:
     meaningful to external programs.  Offset fields are counted in
     Isabelle symbol units, not bytes.
 
-    Args:
-        line: 1-based line number.
+    Attributes:
+        line: 1‑based line number.
         offset: Start offset in Isabelle symbol units.
         end_offset: End offset in Isabelle symbol units.
         file: Canonical file path.
-        id: PIDE command-transaction identifier (rarely needed externally).
+        id: PIDE command‑transaction identifier (rarely needed externally).
     """
 
-    line:       int | None = None
-    offset:     int | None = None
+    line: int | None = None
+    offset: int | None = None
     end_offset: int | None = None
-    file:       str | None = None
-    id:         int | None = None  # noqa: A003
+    file: str | None = None
+    id: int | None = None  # noqa: A003
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Position:
@@ -136,7 +107,7 @@ class Position:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict; ``None`` fields are omitted."""
+        """Serialise to a JSON‑compatible dict; ``None`` fields are omitted."""
         return {k: v for k, v in {
             "line": self.line,
             "offset": self.offset,
@@ -151,22 +122,22 @@ class MessageKind(str, Enum):
 
     WRITELN = "writeln"
     WARNING = "warning"
-    ERROR   = "error"
+    ERROR = "error"
 
 
 @dataclass(frozen=True)
 class Message:
     """General Isabelle output message (§4.3 ``type message``).
 
-    Args:
+    Attributes:
         kind: Message category — ``"writeln"``, ``"warning"``, or ``"error"``.
-        message: Human-readable text.
+        message: Human‑readable text.
         pos: Optional source position associated with the message.
     """
 
-    kind:    str
+    kind: str
     message: str
-    pos:     Position | None = None
+    pos: Position | None = None
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Message:
@@ -188,12 +159,12 @@ class Message:
 class ErrorMessage:
     """Error message whose ``kind`` is always ``"error"`` (§4.3 ``type error_message``).
 
-    Args:
+    Attributes:
         message: Error description.
     """
 
     message: str
-    kind:    str = field(default=MessageKind.ERROR, init=False)
+    kind: str = field(default=MessageKind.ERROR, init=False)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> ErrorMessage:
@@ -207,22 +178,22 @@ class ErrorMessage:
 
 @dataclass(frozen=True)
 class TheoryProgress:
-    """Theory-loading progress notification (§4.3 ``type theory_progress``).
+    """Theory‑loading progress notification (§4.3 ``type theory_progress``).
 
     Arrives as a ``NOTE`` message during ``session_build`` and
     ``session_start`` tasks.  ``kind`` is always ``"writeln"``.
 
-    Args:
-        message: Human-readable progress description.
+    Attributes:
+        message: Human‑readable progress description.
         theory: Qualified theory name, e.g. ``"HOL.Nat"``.
         session: Session name, e.g. ``"HOL"``.
         percentage: Loading percentage in the range 0–100 (optional).
     """
 
-    message:    str
-    theory:     str
-    session:    str
-    kind:       str = field(default=MessageKind.WRITELN, init=False)
+    message: str
+    theory: str
+    session: str
+    kind: str = field(default=MessageKind.WRITELN, init=False)
     percentage: int | None = None
 
     @classmethod
@@ -246,17 +217,17 @@ class TheoryProgress:
 
 @dataclass(frozen=True)
 class Timing:
-    """Wall-clock timing reported by Isabelle in seconds (§4.3 ``type timing``).
+    """Wall‑clock timing reported by Isabelle in seconds (§4.3 ``type timing``).
 
-    Args:
-        elapsed: Total wall-clock time.
+    Attributes:
+        elapsed: Total wall‑clock time.
         cpu: CPU time consumed.
         gc: Time spent in garbage collection.
     """
 
     elapsed: float
-    cpu:     float
-    gc:      float
+    cpu: float
+    gc: float
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Timing:
@@ -266,9 +237,9 @@ class Timing:
 
 @dataclass(frozen=True)
 class NodeStatus:
-    """PIDE document-model processing status for a theory node (§4.3 ``type node_status``).
+    """PIDE document‑model processing status for a theory node (§4.3 ``type node_status``).
 
-    Args:
+    Attributes:
         ok: ``True`` iff ``failed == 0``.
         total: Total number of commands in the node.
         unprocessed: Commands not yet started.
@@ -283,16 +254,16 @@ class NodeStatus:
             when the node is consolidated.
     """
 
-    ok:           bool
-    total:        int
-    unprocessed:  int
-    running:      int
-    warned:       int
-    failed:       int
-    finished:     int
-    canceled:     bool
+    ok: bool
+    total: int
+    unprocessed: int
+    running: int
+    warned: int
+    failed: int
+    finished: int
+    canceled: bool
     consolidated: bool
-    percentage:   int
+    percentage: int
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> NodeStatus:
@@ -315,14 +286,14 @@ class NodeStatus:
 class Node:
     """Internal theory node reference (§4.3 ``type node``).
 
-    Args:
-        node_name: Canonical file-system path after normalisation,
+    Attributes:
+        node_name: Canonical file‑system path after normalisation,
             e.g. ``"~~/src/HOL/Examples/Seq.thy"``.
-        theory_name: Session-qualified theory name,
+        theory_name: Session‑qualified theory name,
             e.g. ``"HOL-Examples.Seq"``.
     """
 
-    node_name:   str
+    node_name: str
     theory_name: str
 
     @classmethod
@@ -340,12 +311,12 @@ class NodeWithStatus:
     :class:`UseTheoriesArgs`.  Corresponds to the spec type
     ``node ⊕ {status: node_status}``.
 
-    Args:
+    Attributes:
         node: Theory node identity.
         status: Current processing status.
     """
 
-    node:   Node
+    node: Node
     status: NodeStatus
 
     @classmethod
@@ -361,6 +332,7 @@ class NodeWithStatus:
 # §4.4.5 / §4.4.6  session_build / session_start
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SessionBuildArgs:
     """Arguments shared by ``session_build`` (§4.4.5) and ``session_start`` (§4.4.6).
@@ -368,35 +340,41 @@ class SessionBuildArgs:
     ``print_mode`` is accepted here for convenience; it is only meaningful
     for ``session_start`` and is silently ignored by ``session_build``.
 
-    Args:
+    Attributes:
         session: Target session name, e.g. ``"HOL"`` or ``"HOL-Analysis"``.
         preferences: Raw preferences text (the file content, not a path).
         options: Individual option updates, e.g. ``["timeout=60"]``.
         dirs: Additional directories containing ROOT or ROOTS files.
         include_sessions: Sessions whose theories should be included in
-            the name space (for use with session-qualified theory names).
+            the name space (for use with session‑qualified theory names).
         verbose: Enable verbose build output.
         print_mode: Print mode identifiers for ``session_start``,
             e.g. ``["ASCII"]``.
     """
 
-    session:          str
-    preferences:      str | None = None
-    options:          list[str]  = field(default_factory=list)
-    dirs:             list[str]  = field(default_factory=list)
-    include_sessions: list[str]  = field(default_factory=list)
-    verbose:          bool       = False
-    print_mode:       list[str]  = field(default_factory=list)
+    session: str
+    preferences: str | None = None
+    options: list[str] = field(default_factory=list)
+    dirs: list[str] = field(default_factory=list)
+    include_sessions: list[str] = field(default_factory=list)
+    verbose: bool = False
+    print_mode: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict; empty and false fields are omitted."""
+        """Serialise to a JSON‑compatible dict; empty and false fields are omitted."""
         d: dict[str, Any] = {"session": self.session}
-        if self.preferences      is not None: d["preferences"]     = self.preferences
-        if self.options:                       d["options"]          = self.options
-        if self.dirs:                          d["dirs"]             = self.dirs
-        if self.include_sessions:              d["include_sessions"] = self.include_sessions
-        if self.verbose:                       d["verbose"]          = True
-        if self.print_mode:                    d["print_mode"]       = self.print_mode
+        if self.preferences is not None:
+            d["preferences"] = self.preferences
+        if self.options:
+            d["options"] = self.options
+        if self.dirs:
+            d["dirs"] = self.dirs
+        if self.include_sessions:
+            d["include_sessions"] = self.include_sessions
+        if self.verbose:
+            d["verbose"] = True
+        if self.print_mode:
+            d["print_mode"] = self.print_mode
         return d
 
 
@@ -404,19 +382,19 @@ class SessionBuildArgs:
 class SessionBuildResult:
     """Build outcome for a single session within a ``session_build`` task (§4.4.5).
 
-    Args:
+    Attributes:
         session: Session name.
         ok: ``True`` iff ``return_code == 0``.
         return_code: POSIX process exit code.
         timeout: ``True`` if the build was aborted after exceeding the timeout.
-        timing: Wall-clock timing for this session's build.
+        timing: Wall‑clock timing for this session's build.
     """
 
-    session:     str
-    ok:          bool
+    session: str
+    ok: bool
     return_code: int
-    timeout:     bool
-    timing:      Timing
+    timeout: bool
+    timing: Timing
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> SessionBuildResult:
@@ -434,15 +412,15 @@ class SessionBuildResult:
 class SessionBuildResults:
     """Aggregate result of a completed ``session_build`` task (§4.4.5).
 
-    Args:
+    Attributes:
         ok: ``True`` iff all required sessions were built successfully.
         return_code: Highest POSIX return code across all sessions.
         sessions: Individual build results, one per session in the hierarchy.
     """
 
-    ok:          bool
+    ok: bool
     return_code: int
-    sessions:    list[SessionBuildResult]
+    sessions: list[SessionBuildResult]
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> SessionBuildResults:
@@ -458,14 +436,14 @@ class SessionBuildResults:
 class SessionStartResult:
     """Result of a successful ``session_start`` task (§4.4.6).
 
-    Args:
+    Attributes:
         session_id: Identifier of the newly created PIDE session.
         tmp_dir: Path to a temporary directory created for this session;
             deleted when the session is stopped.
     """
 
     session_id: SessionId
-    tmp_dir:    str
+    tmp_dir: str
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> SessionStartResult:
@@ -477,16 +455,17 @@ class SessionStartResult:
 # §4.4.7  session_stop
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class SessionStopResult:
     """Result of a ``session_stop`` task (§4.4.7).
 
-    Args:
+    Attributes:
         ok: ``True`` iff the underlying ML process terminated cleanly.
         return_code: POSIX process exit code.
     """
 
-    ok:          bool
+    ok: bool
     return_code: int
 
     @classmethod
@@ -499,16 +478,17 @@ class SessionStopResult:
 # §4.4.8  use_theories
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class UseTheoriesArgs:
     """Arguments for the ``use_theories`` command (§4.4.8).
 
-    Args:
+    Attributes:
         session_id: Identifier of the target session.
         theories: Theory names or absolute file paths to load.
         master_dir: Base directory for resolving relative theory paths;
             defaults to the session ``tmp_dir``.
-        pretty_margin: Line width used for pretty-printing output messages;
+        pretty_margin: Line width used for pretty‑printing output messages;
             default is 76.
         unicode_symbols: When ``True``, render Isabelle symbols as Unicode
             in output rather than keeping their symbolic representation.
@@ -522,31 +502,39 @@ class UseTheoriesArgs:
             negative disables them (default −1).
     """
 
-    session_id:         SessionId
-    theories:           list[str]
-    master_dir:         str | None   = None
-    pretty_margin:      float | None = None
-    unicode_symbols:    bool | None  = None
-    export_pattern:     str | None   = None
-    check_delay:        float | None = None
-    check_limit:        int | None   = None
-    watchdog_timeout:   float | None = None
+    session_id: SessionId
+    theories: list[str]
+    master_dir: str | None = None
+    pretty_margin: float | None = None
+    unicode_symbols: bool | None = None
+    export_pattern: str | None = None
+    check_delay: float | None = None
+    check_limit: int | None = None
+    watchdog_timeout: float | None = None
     nodes_status_delay: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict; ``None`` fields are omitted."""
+        """Serialise to a JSON‑compatible dict; ``None`` fields are omitted."""
         d: dict[str, Any] = {
             "session_id": self.session_id.session_id,
-            "theories":   self.theories,
+            "theories": self.theories,
         }
-        if self.master_dir         is not None: d["master_dir"]         = self.master_dir
-        if self.pretty_margin      is not None: d["pretty_margin"]      = self.pretty_margin
-        if self.unicode_symbols    is not None: d["unicode_symbols"]    = self.unicode_symbols
-        if self.export_pattern     is not None: d["export_pattern"]     = self.export_pattern
-        if self.check_delay        is not None: d["check_delay"]        = self.check_delay
-        if self.check_limit        is not None: d["check_limit"]        = self.check_limit
-        if self.watchdog_timeout   is not None: d["watchdog_timeout"]   = self.watchdog_timeout
-        if self.nodes_status_delay is not None: d["nodes_status_delay"] = self.nodes_status_delay
+        if self.master_dir is not None:
+            d["master_dir"] = self.master_dir
+        if self.pretty_margin is not None:
+            d["pretty_margin"] = self.pretty_margin
+        if self.unicode_symbols is not None:
+            d["unicode_symbols"] = self.unicode_symbols
+        if self.export_pattern is not None:
+            d["export_pattern"] = self.export_pattern
+        if self.check_delay is not None:
+            d["check_delay"] = self.check_delay
+        if self.check_limit is not None:
+            d["check_limit"] = self.check_limit
+        if self.watchdog_timeout is not None:
+            d["watchdog_timeout"] = self.watchdog_timeout
+        if self.nodes_status_delay is not None:
+            d["nodes_status_delay"] = self.nodes_status_delay
         return d
 
 
@@ -554,16 +542,16 @@ class UseTheoriesArgs:
 class Export:
     """Single theory export item returned by ``use_theories`` (§4.4.8).
 
-    Args:
+    Attributes:
         name: Compound export name in ``"theory/name"`` format.
-        base64: ``True`` if ``body`` is base64-encoded binary; ``False``
-            if it is plain UTF-8 text.
-        body: Export content — either UTF-8 text or a base64 string.
+        base64: ``True`` if ``body`` is base64‑encoded binary; ``False``
+            if it is plain UTF‑8 text.
+        body: Export content — either UTF‑8 text or a base64 string.
     """
 
-    name:   str
+    name: str
     base64: bool  # noqa: A003
-    body:   str
+    body: str
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Export:
@@ -575,15 +563,15 @@ class Export:
 class NodeResults:
     """Processing results for a single theory node (§4.4.8 ``type node_results``).
 
-    Args:
+    Attributes:
         status: Final processing status of the node.
         messages: All prover messages produced while checking this node.
         exports: Theory exports matching the requested pattern.
     """
 
-    status:   NodeStatus
+    status: NodeStatus
     messages: list[Message]
-    exports:  list[Export]
+    exports: list[Export]
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> NodeResults:
@@ -603,12 +591,12 @@ class NodeResultEntry:
     identity and processing results.  This class separates the two concerns
     into typed fields for clarity.
 
-    Args:
+    Attributes:
         node: Theory node identity.
         results: Processing results for that node.
     """
 
-    node:    Node
+    node: Node
     results: NodeResults
 
     @classmethod
@@ -624,15 +612,15 @@ class NodeResultEntry:
 class UseTheoriesResults:
     """Final result of a completed ``use_theories`` task (§4.4.8).
 
-    Args:
+    Attributes:
         ok: ``True`` iff all nodes were processed without errors.
         errors: All error messages across every node (with position info).
-        nodes: Per-node identity and detailed processing results.
+        nodes: Per‑node identity and detailed processing results.
     """
 
-    ok:     bool
+    ok: bool
     errors: list[Message]
-    nodes:  list[NodeResultEntry]
+    nodes: list[NodeResultEntry]
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> UseTheoriesResults:
@@ -648,11 +636,12 @@ class UseTheoriesResults:
 # §4.4.9  purge_theories
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PurgeTheoriesArgs:
     """Arguments for the ``purge_theories`` command (§4.4.9).
 
-    Args:
+    Attributes:
         session_id: Identifier of the target session.
         theories: Theory node names to remove — use ``node_name`` values
             from :attr:`NodeResultEntry.node` for precision.
@@ -662,16 +651,19 @@ class PurgeTheoriesArgs:
     """
 
     session_id: SessionId
-    theories:   list[str]  = field(default_factory=list)
+    theories: list[str] = field(default_factory=list)
     master_dir: str | None = None
-    all:        bool       = False  # noqa: A003
+    all: bool = False  # noqa: A003
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict; empty and false fields are omitted."""
+        """Serialise to a JSON‑compatible dict; empty and false fields are omitted."""
         d: dict[str, Any] = {"session_id": self.session_id.session_id}
-        if self.theories:               d["theories"]   = self.theories
-        if self.master_dir is not None: d["master_dir"] = self.master_dir
-        if self.all:                    d["all"]         = True
+        if self.theories:
+            d["theories"] = self.theories
+        if self.master_dir is not None:
+            d["master_dir"] = self.master_dir
+        if self.all:
+            d["all"] = True
         return d
 
 
@@ -679,13 +671,13 @@ class PurgeTheoriesArgs:
 class PurgeTheoriesResults:
     """Result of a ``purge_theories`` command (§4.4.9).
 
-    Args:
+    Attributes:
         purged: Node names that were actually removed from the session.
         retained: Node names that could not be purged because they are
             still referenced by other theories or pending tasks.
     """
 
-    purged:   list[str]
+    purged: list[str]
     retained: list[str]
 
     @classmethod

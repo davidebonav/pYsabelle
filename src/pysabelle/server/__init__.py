@@ -1,3 +1,9 @@
+"""Server process management: starting, attaching, stopping Isabelle servers.
+
+This package provides tools to control the lifecycle of `isabelle server`
+processes and to obtain connection information for running servers.
+"""
+
 from pysabelle.server.exceptions import (
     IsabelleError,
     IsabelleServerError,

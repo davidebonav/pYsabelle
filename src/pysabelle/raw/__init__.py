@@ -1,3 +1,9 @@
+"""Raw protocol layer: transport, dispatcher, commands and types.
+
+This package contains the low-level implementation of the Isabelle Server protocol.
+All public symbols are re-exported here for convenience.
+"""
+
 from __future__ import annotations
 
 from pysabelle.raw.exceptions import (

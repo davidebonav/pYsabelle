@@ -2,7 +2,7 @@
 pysabelle.raw.transport
 =================
 Async TCP transport implementing the Isabelle byte-message framing protocol
-(§4.2.1 – §4.2.2).
+(§4.2.1 - §4.2.2).
 
 :class:`Transport` wraps an ``asyncio`` ``StreamReader`` / ``StreamWriter``
 pair and exposes two primitives:

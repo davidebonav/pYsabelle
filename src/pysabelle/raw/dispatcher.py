@@ -1,3 +1,10 @@
+"""Asynchronous task dispatcher for multiplexing replies.
+
+The dispatcher runs a background reader loop that receives raw replies from the
+transport, classifies them (OK, ERROR, NOTE, FINISHED, FAILED) and routes them to
+the appropriate waiting futures or callbacks.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -22,6 +29,21 @@ _TaskEntry = tuple[asyncio.Future[RawReply], NoteCallback | None]
 
 
 class TaskDispatcher:
+    """Multiplexes incoming server replies to waiting callers.
+
+    The dispatcher owns a background task that continuously reads from the transport.
+    It maintains:
+    - a single `_sync_reply` future for the next synchronous reply (OK/ERROR)
+    - a dictionary `_pending` mapping task UUIDs to (future, callback) for async tasks
+
+    Use `run_sync()` for commands that return a single immediate reply.
+    Use `run_async()` for commands that first return an OK with a task ID, then later
+    a FINISHED/FAILED, possibly with intermediate NOTE messages.
+
+    Args:
+        transport: Open transport to the server.
+    """
+
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
         self._pending: dict[UUID, _TaskEntry] = {}
@@ -30,6 +52,7 @@ class TaskDispatcher:
         self._loop_task: asyncio.Task[None] | None = None
 
     def _start(self) -> None:
+        """Start the background reader loop if not already running."""
         if self._loop_task is None or self._loop_task.done():
             self._loop_task = asyncio.get_running_loop().create_task(
                 self._reader_loop(), name="isabelle-dispatcher"
@@ -37,6 +60,7 @@ class TaskDispatcher:
             logger.debug("Reader loop started.")
 
     async def _stop(self) -> None:
+        """Stop the reader loop and cancel all pending tasks."""
         if self._loop_task and not self._loop_task.done():
             self._loop_task.cancel()
             try:
@@ -51,10 +75,12 @@ class TaskDispatcher:
         self._cancel_all(reason="dispatcher stopped")
 
     async def start(self) -> None:
+        """Public API to start the dispatcher."""
         self._start()
-        await asyncio.sleep(0) # yield so the reader task is actually scheduled
+        await asyncio.sleep(0)  # yield so the reader task is actually scheduled
 
     async def stop(self) -> None:
+        """Public API to stop the dispatcher."""
         await self._stop()
 
     async def __aenter__(self) -> TaskDispatcher:
@@ -65,6 +91,7 @@ class TaskDispatcher:
         await self.stop()
 
     async def _reader_loop(self) -> None:
+        """Background task: read replies from transport and dispatch."""
         logger.debug("Reader loop running.")
         try:
             while True:
@@ -82,7 +109,9 @@ class TaskDispatcher:
             self._fail_all(exc)
 
     async def _dispatch(self, reply: RawReply) -> None:
+        """Route a single reply to the appropriate waiter."""
         if reply.is_ok or reply.is_error:
+            # Synchronous reply
             if self._sync_reply is not None and not self._sync_reply.done():
                 self._sync_reply.set_result(reply)
                 self._sync_reply = None
@@ -96,7 +125,7 @@ class TaskDispatcher:
         # Intermediate notification (NOTE)
         if reply.is_note:
             task_id = reply.task_id
-            entry   = self._pending.get(task_id) if task_id else None
+            entry = self._pending.get(task_id) if task_id else None
             if entry is None:
                 logger.debug("NOTE for untracked task %r — dropping.", task_id)
                 return
@@ -111,7 +140,7 @@ class TaskDispatcher:
         # Terminal async reply (FINISHED / FAILED)
         if reply.is_terminal:
             task_id = reply.task_id
-            entry   = self._pending.pop(task_id, None) if task_id else None
+            entry = self._pending.pop(task_id, None) if task_id else None
             if entry is None:
                 logger.warning(
                     "%s for untracked task %r — dropping.",
@@ -130,6 +159,7 @@ class TaskDispatcher:
         logger.warning("Unroutable reply (kind=%s) — dropping.", reply.kind.value)
 
     def _fail_all(self, exc: Exception) -> None:
+        """Fail all pending futures with the given exception."""
         if self._sync_reply and not self._sync_reply.done():
             self._sync_reply.set_exception(exc)
             self._sync_reply = None
@@ -141,6 +171,7 @@ class TaskDispatcher:
         self._pending.clear()
 
     def _cancel_all(self, reason: str = "") -> None:
+        """Cancel all pending futures."""
         if self._sync_reply and not self._sync_reply.done():
             self._sync_reply.cancel(reason)
             self._sync_reply = None
@@ -152,7 +183,8 @@ class TaskDispatcher:
         self._pending.clear()
 
     def _arm_sync_reply(self) -> asyncio.Future[RawReply]:
-        fut              = asyncio.get_running_loop().create_future()
+        """Prepare a future for the next synchronous reply."""
+        fut = asyncio.get_running_loop().create_future()
         self._sync_reply = fut
         return fut
 
@@ -161,6 +193,7 @@ class TaskDispatcher:
         task_id: UUID,
         on_note: NoteCallback | None,
     ) -> asyncio.Future[RawReply]:
+        """Register a new async task and return a future for its terminal reply."""
         fut = asyncio.get_running_loop().create_future()
         self._pending[task_id] = (fut, on_note)
         logger.debug(
@@ -172,8 +205,24 @@ class TaskDispatcher:
     async def run_sync(
         self,
         command: str,
-        arg:     Any = None,
+        arg: Any = None,
     ) -> RawReply:
+        """Execute a synchronous command and return its immediate reply.
+
+        The command is sent while holding the command lock. The reply must be
+        either OK or ERROR; any other kind is considered a protocol error.
+
+        Args:
+            command: Name of the command (e.g., "help", "echo").
+            arg: Optional JSON-serializable argument.
+
+        Returns:
+            The raw reply (OK or ERROR).
+
+        Raises:
+            IsabelleCommandError: If the server replies with ERROR.
+            IsabelleProtocolError: If the reply is neither OK nor ERROR.
+        """
         wire = f"{command} {json.dumps(arg, ensure_ascii=False)}" if arg is not None else command
         logger.debug("sync → %s", wire[:120])
 
@@ -195,10 +244,31 @@ class TaskDispatcher:
     async def run_async(
         self,
         command: str,
-        arg:     Any = None,
+        arg: Any = None,
         on_note: NoteCallback | None = None,
-        timeout: float | None        = None,
+        timeout: float | None = None,
     ) -> RawReply:
+        """Execute an asynchronous command and wait for its terminal reply.
+
+        The command is sent; the first reply must be OK containing a task ID.
+        Subsequent NOTE messages are delivered to `on_note`, and the future
+        returned completes when FINISHED or FAILED arrives.
+
+        Args:
+            command: Name of the command (e.g., "session_build").
+            arg: Optional JSON-serializable argument.
+            on_note: Callback invoked for each NOTE message belonging to this task.
+            timeout: Maximum seconds to wait for the terminal reply.
+
+        Returns:
+            The terminal reply (FINISHED or FAILED).
+
+        Raises:
+            IsabelleCommandError: If the immediate reply is ERROR or the task fails.
+            IsabelleProtocolError: If the immediate reply is OK but lacks a task ID.
+            IsabelleTimeoutError: If the terminal reply does not arrive within `timeout`.
+            IsabelleTaskCancelled: If the task ends with FAILED {"message": "Interrupt"}.
+        """
         wire = f"{command} {json.dumps(arg, ensure_ascii=False)}" if arg is not None else command
         logger.debug("async → %s", wire[:120])
 

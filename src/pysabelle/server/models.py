@@ -1,3 +1,4 @@
+"""Data models for server information."""
 
 from __future__ import annotations
 
@@ -6,9 +7,18 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class ServerInfo:
-    name:     str
-    host:     str
-    port:     int
+    """Connection information for a running Isabelle server.
+
+    Attributes:
+        name: Server name (as given with `-n`).
+        host: Hostname or IP address the server is listening on.
+        port: TCP port number.
+        password: Password required for the initial handshake.
+    """
+
+    name: str
+    host: str
+    port: int
     password: str
 
     def __repr__(self) -> str:

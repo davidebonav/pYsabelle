@@ -1,3 +1,5 @@
+"""Private regular expressions for parsing server output."""
+
 from __future__ import annotations
 
 import re
