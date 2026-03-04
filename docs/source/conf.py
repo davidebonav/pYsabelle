@@ -26,7 +26,6 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'sphinx_autodoc_typehints',
-    'myst_parser',
 ]
 
 autodoc_default_options = {

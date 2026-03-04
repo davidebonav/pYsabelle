@@ -12,7 +12,4 @@ Table of Contents
    :maxdepth: 2
    :caption: Contents:
 
-.. mdinclude:: ../../README.md
-
    modules
-
