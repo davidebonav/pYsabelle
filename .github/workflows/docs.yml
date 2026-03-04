@@ -18,7 +18,7 @@ jobs:
           pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints myst-parser
       - name: Generate .rst files with sphinx-apidoc
         run: |
-          sphinx-apidoc -o docs/source pysabelle --force
+          sphinx-apidoc -o docs/source src/pysabelle --force
       - name: Build HTML documentation
         run: |
           cd docs
