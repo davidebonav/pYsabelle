@@ -88,6 +88,7 @@ class IsabelleClient:
         cls,
         name: str = "isabelle",
         reuse_existing: bool = True,
+        server_env:     dict | None = None,
     ) -> "IsabelleClient":
         """Start a new Isabelle server (or reuse an existing one) and connect.
 
@@ -104,7 +105,7 @@ class IsabelleClient:
             IsabelleServerError: If server startup fails.
             IsabelleConnectionError: If the handshake fails.
         """
-        srv = cls._resolve_server(name, reuse_existing)
+        srv = cls._resolve_server(name, reuse_existing, server_env)
         srv.start()
         log.debug("Isabelle server running: host=%s port=%s", srv.info.host, srv.info.port)
 
@@ -116,15 +117,15 @@ class IsabelleClient:
         )
 
     @staticmethod
-    def _resolve_server(name: str, reuse_existing: bool) -> IsabelleServerProcess:
+    def _resolve_server(name: str, reuse_existing: bool, env: dict | None) -> IsabelleServerProcess:
         """Determine which server process to use.
 
         Returns:
             A server process manager ready to be started.
         """
         if reuse_existing and is_server_running(name=name):
-            return IsabelleServerProcess(name=name, assume_existing=True)
-        return IsabelleServerProcess(name=name, force_start=True)
+            return IsabelleServerProcess(name=name, assume_existing=True, env=env)
+        return IsabelleServerProcess(name=name, force_start=True, env=env)
 
     @staticmethod
     async def _open_transport(host: str, port: int, password: str) -> Transport:

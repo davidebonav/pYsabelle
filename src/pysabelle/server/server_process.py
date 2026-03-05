@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import queue
 import subprocess
 import threading
@@ -118,6 +119,7 @@ class IsabelleServerProcess(BaseIsabelleServer):
             running, stop it first and then start a fresh one.
         isabelle_bin: Path or name of the `isabelle` executable.
         startup_timeout: Maximum seconds to wait for the server to become ready.
+        env: env dictionary
 
     Raises:
         ValueError: If both `assume_existing` and `force_start` are True.
@@ -132,6 +134,7 @@ class IsabelleServerProcess(BaseIsabelleServer):
         force_start: bool = False,
         isabelle_bin: str = "isabelle",
         startup_timeout: float = 30.0,
+        env: dict | None = None,
     ) -> None:
         if assume_existing and force_start:
             raise ValueError(
@@ -145,6 +148,7 @@ class IsabelleServerProcess(BaseIsabelleServer):
         self._force_start = force_start
         self._isabelle_bin = isabelle_bin
         self._startup_timeout = startup_timeout
+        self._env = env or os.environ.copy()
 
         self._info: Optional[ServerInfo] = None
         self._owns_process: bool = False
@@ -275,6 +279,7 @@ class IsabelleServerProcess(BaseIsabelleServer):
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            env=self._env,
         )
         self._owns_process = True
 
